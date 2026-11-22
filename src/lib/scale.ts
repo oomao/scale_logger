@@ -204,7 +204,9 @@ export async function startScan(all = false) {
     bt()?.removeEventListener('advertisementreceived', onAdvert);
     const msg = (e as Error).message || String(e);
     set({ phase: 'idle', mode: null, error: true,
-      status: /denied|permission|NotAllowed/i.test(msg) ? '沒有允許掃描藍牙。請再按一次，跳出詢問時按「允許」。' : '沒辦法開始掃描：' + msg + '。請確認藍牙和定位都有打開。' });
+      status: /denied|permission|NotAllowed|blocked|cancel/i.test(msg)
+        ? 'Chrome 擋住了藍牙掃描。請依序檢查：① 點網址列左邊的圖示 →「權限」→「重設權限」；② 手機「設定 → 應用程式 → Chrome → 權限」，「附近的裝置」和「位置」都設成允許；③ 手機的藍牙和定位（GPS）都打開。然後再按一次開始，跳出詢問時按「允許」。'
+        : '沒辦法開始掃描：' + msg + '。請確認藍牙和定位都有打開。' });
     return;
   }
   scanTimer = setTimeout(() => {

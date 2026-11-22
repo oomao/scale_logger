@@ -52,24 +52,21 @@ const c = compose({ sex: 'M', height: 170, age: 40 }, 67.85, 500);
 console.log('compose', c);
 eq('BMI', c.bmi, 23.5);
 eq('fat% in range', c.fatPct! > 10 && c.fatPct! < 30, true);
-// 對照 OKOK 國際版實際畫面（2026-11-21）：女 56 歲 152 cm、68.6 kg，秤送固定 500 Ω
-const o = compose({ sex: 'F', height: 152, age: 56 }, 68.6, 500);
-eq('OKOK BMI', o.bmi, 29.7);
-eq('OKOK 脂肪率', o.fatPct, 41.2);
-eq('OKOK 脂肪重', o.fatKg, 28.3);
-eq('OKOK 骨骼肌率', o.skeletalPct, 31.3);
-eq('OKOK 骨骼肌重', o.skeletalKg, 21.5);
-eq('OKOK 肌肉%', o.musclePct, 54.6);
-eq('OKOK 肌肉重', o.muscleKg, 37.5);
-eq('OKOK 水份%', o.waterPct, 46.6);
-eq('OKOK 水含量', o.waterKg, 31.9);
-eq('OKOK 內臟脂肪', o.visceral, 10);
-eq('OKOK 骨量', o.boneKg, 2.83);
-eq('OKOK 蛋白質', o.proteinPct, 8.1);
-eq('OKOK 肥胖度', o.obesity, 39.4);
-eq('OKOK 去脂體重', o.leanKg, 40.32);
-eq('OKOK 基礎代謝 1193（±5）', Math.abs(o.bmr - 1193) <= 5, true);
-console.log('OKOK 身體年齡 66，我們算', o.bodyAge);
+// 對照 OKOK 國際版實際畫面（2026-11-22，三位家人，秤都送固定 500 Ω）
+type Okok = [sex: 'M' | 'F', H: number, A: number, W: number, expect: Record<string, number>];
+const OKOK: Okok[] = [
+  ['F', 152, 56, 68.6, { bmi: 29.7, fatPct: 41.2, fatKg: 28.3, skeletalPct: 31.3, skeletalKg: 21.5, musclePct: 54.6, muscleKg: 37.5, waterPct: 46.6, waterKg: 31.9, visceral: 10, boneKg: 2.83, bmr: 1193, proteinPct: 8.1, obesity: 39.4, bodyAge: 66, leanKg: 40.32 }],
+  ['M', 160, 61, 72.05, { bmi: 28.1, fatPct: 27.3, fatKg: 19.7, skeletalPct: 36.7, skeletalKg: 26.4, musclePct: 68.7, muscleKg: 49.5, waterPct: 53.5, waterKg: 38.5, visceral: 16.5, boneKg: 2.84, bmr: 1397, proteinPct: 15.2, obesity: 28.7, bodyAge: 52, leanKg: 52.38 }],
+  ['F', 154, 19, 52.35, { bmi: 22.1, fatPct: 28.1, fatKg: 14.7, skeletalPct: 38.2, skeletalKg: 20, musclePct: 68.3, muscleKg: 35.7, waterPct: 51.2, waterKg: 26.8, visceral: 3, boneKg: 1.87, bmr: 1174, proteinPct: 17.1, obesity: 3.9, bodyAge: 23, leanKg: 37.66 }],
+];
+for (const [sex, H, A, W, exp] of OKOK) {
+  const o = compose({ sex, height: H, age: A }, W, 500) as unknown as Record<string, number>;
+  for (const [k, v] of Object.entries(exp)) {
+    // 骨量 OKOK 用的是另一條沒公開的公式，容許差 0.06 kg
+    if (k === 'boneKg') eq(`OKOK ${sex}${A} ${k} ≈ ${v}`, Math.abs(o[k] - v) <= 0.06, true);
+    else eq(`OKOK ${sex}${A} ${k}`, o[k], v);
+  }
+}
 eq('no impedance → no fat', compose({ sex: 'F', height: 160, age: 60 }, 55, null).fatPct, undefined);
 
 console.log(fail ? `\n${fail} 項失敗` : '\n全部通過');

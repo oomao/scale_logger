@@ -8,7 +8,7 @@ export default function History() {
   const db = useDb();
   const me = db.members.find((m) => m.id === db.current);
   const list = recsOf(db, db.current);
-  const rows = list.map((r, i) => ({ r, c: derive(r, me).c, d: i ? Math.round((r.kg - list[i - 1].kg) * 10) / 10 : null })).reverse();
+  const rows = list.map((r, i) => ({ r, c: derive(r, me).c, d: i ? Math.round((r.kg - list[i - 1].kg) * 100) / 100 : null })).reverse();
 
   // 依月份分組
   const groups: [string, typeof rows][] = [];
@@ -37,7 +37,7 @@ export default function History() {
                 <Link to={'/report/' + r.id} className="flex flex-1 items-center gap-3">
                   <span className="w-28 text-sm text-gray-500 dark:text-gray-400">{fmtDate(r.time)}</span>
                   <span className="text-lg font-semibold tabular-nums">{fmtKg(r.kg)}<span className="text-xs font-normal text-gray-500"> kg</span></span>
-                  {d != null && d !== 0 && <span className={`text-xs ${d > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{d > 0 ? '+' : ''}{d}</span>}
+                  {d != null && d !== 0 && <span className={`text-xs ${d > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{d > 0 ? '+' : ''}{d.toFixed(2)}</span>}
                   <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                     {c?.fatPct != null ? `體脂 ${c.fatPct}%` : r.source === 'manual' ? '手動' : ''}
                   </span>

@@ -35,5 +35,5 @@ export function fakeImpedance(recs: Rec[]): boolean {
   return z.length >= 3 && z.every((v) => v === z[0]) && Math.max(...kg) - Math.min(...kg) >= 0.5;
 }
 
-// 0.05 kg 精度的秤顯示兩位小數，其他一位
-export const fmtKg = (v: number | null | undefined) => (v == null ? '—' : Math.abs(v * 10 - Math.round(v * 10)) > 1e-6 ? v.toFixed(2) : v.toFixed(1));
+// 體重一律顯示到小數點第二位（68.60），體重變化、體重分界也是
+export const fmtKg = (v: number | null | undefined) => (v == null ? '—' : v.toFixed(2));

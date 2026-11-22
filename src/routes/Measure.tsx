@@ -9,7 +9,7 @@ import Spark from '../components/Spark';
 import { TAPE_ITEMS, tapesOf, type Rec } from '../lib/store';
 
 const DAY = 24 * 3600 * 1000;
-const signed = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(1);
+const signed = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(2);
 
 // 體重分級：國健署 BMI 18.5 / 24 / 27，四段等寬色條（跟 OKOK 首頁一樣的樣子）
 const WEIGHT_BANDS: [string, string, string][] = [
@@ -47,7 +47,7 @@ function WeightCard({ recs, height }: { recs: Rec[]; height?: number }) {
             <div className="absolute -top-1.5 h-5 w-5 -translate-x-1/2 rounded-full border-4 border-white bg-gray-900 shadow dark:border-gray-900 dark:bg-white" style={{ left: pos + '%' }} />
           </div>
           <div className="relative mt-1 h-4 text-[11px] text-gray-500">
-            {[1, 2, 3].map((i) => <span key={i} className="absolute -translate-x-1/2 tabular-nums" style={{ left: i * 25 + '%' }}>{cuts[i].toFixed(1)}</span>)}
+            {[1, 2, 3].map((i) => <span key={i} className="absolute -translate-x-1/2 tabular-nums" style={{ left: i * 25 + '%' }}>{cuts[i].toFixed(2)}</span>)}
           </div>
         </div>
       )}
@@ -152,16 +152,16 @@ function ManualEntry({ memberId }: { memberId: string }) {
   const save = () => {
     const v = Number(kg);
     if (!(v >= 3 && v <= 250)) return alert('體重請填 3～250 公斤');
-    addRec({ memberId, time: Date.now(), kg: Math.round(v * 10) / 10, impedance: null, source: 'manual' });
+    addRec({ memberId, time: Date.now(), kg: Math.round(v * 100) / 100, impedance: null, source: 'manual' });
     setKg('');
-    alert('已記下 ' + v.toFixed(1) + ' 公斤');
+    alert('已記下 ' + (Math.round(v * 100) / 100).toFixed(2) + ' 公斤');
   };
   return (
     <details className="card">
       <summary className="cursor-pointer font-semibold">手動輸入體重</summary>
       <p className="muted mt-1">體重計讀不到時用。體脂等數字會跟體重計一樣用 500 Ω 估算。</p>
       <div className="mt-2 flex gap-2">
-        <input className="input" inputMode="decimal" placeholder="例如 62.5" value={kg} onChange={(e) => setKg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} />
+        <input className="input" inputMode="decimal" placeholder="例如 62.50" value={kg} onChange={(e) => setKg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} />
         <button className="btn-primary" onClick={save}>記下</button>
       </div>
     </details>
@@ -219,7 +219,7 @@ export default function Measure() {
         <section className="card text-center">
           <p className="muted">{scale.mode === 'gatt' ? '連線模式' : '正在接收體重計訊號'}・{me.name}</p>
           <p className="mt-4 text-7xl font-bold tabular-nums">
-            {scale.live ? fmtKg(scale.live.kg) : '--.-'}
+            {scale.live ? fmtKg(scale.live.kg) : '--.--'}
             <span className="ml-1 text-2xl font-normal text-gray-500">kg</span>
           </p>
           <p className="mt-4 text-lg">{scale.status}</p>
@@ -247,7 +247,7 @@ export default function Measure() {
         <p className="muted text-center">
           跟上次（{fmtDate(prev.time)}）比：
           <b className={saved.kg - prev.kg > 0 ? 'text-orange-600' : 'text-emerald-600'}>
-            {saved.kg - prev.kg > 0 ? '+' : ''}{(saved.kg - prev.kg).toFixed(1)} kg
+            {saved.kg - prev.kg > 0 ? '+' : ''}{(saved.kg - prev.kg).toFixed(2)} kg
           </b>
         </p>
       )}

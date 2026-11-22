@@ -73,7 +73,7 @@ export default function Report() {
   const prev = mine.filter((r) => r.time < rec.time).pop();
   const prevD = prev ? derive(prev, m).c : null;
   const delta = (a?: number, b?: number) => (a == null || b == null ? null : Math.round((a - b) * 10) / 10);
-  const dKg = prev ? delta(rec.kg, prev.kg) : null;
+  const dKg = prev ? Math.round((rec.kg - prev.kg) * 100) / 100 : null;
 
   return (
     <div className="space-y-3">
@@ -87,13 +87,13 @@ export default function Report() {
         <p className="mt-2 text-5xl font-bold tabular-nums">
           {fmtKg(rec.kg)}<span className="ml-1 text-xl font-normal text-gray-500">kg</span>
           {dKg != null && dKg !== 0 && (
-            <span className={`ml-3 text-lg font-semibold ${dKg > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{dKg > 0 ? '▲' : '▼'} {Math.abs(dKg)}</span>
+            <span className={`ml-3 text-lg font-semibold ${dKg > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{dKg > 0 ? '▲' : '▼'} {Math.abs(dKg).toFixed(2)}</span>
           )}
         </p>
         {c && (
           <p className="muted mt-1">
             理想體重 {c.idealKg} kg（BMI 22）・
-            {Math.abs(rec.kg - c.idealKg) < 0.5 ? '剛好' : rec.kg > c.idealKg ? `多 ${(rec.kg - c.idealKg).toFixed(1)} kg` : `少 ${(c.idealKg - rec.kg).toFixed(1)} kg`}
+            {Math.abs(rec.kg - c.idealKg) < 0.5 ? '剛好' : rec.kg > c.idealKg ? `多 ${(rec.kg - c.idealKg).toFixed(2)} kg` : `少 ${(c.idealKg - rec.kg).toFixed(2)} kg`}
           </p>
         )}
         {c && p && bodyType(p, c) && (

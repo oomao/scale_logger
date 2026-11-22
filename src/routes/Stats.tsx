@@ -41,7 +41,7 @@ export default function Stats() {
   }
   const data = [...byDay.values()];
   const first = data[0], last = data[data.length - 1];
-  const change = first && last && data.length > 1 ? Math.round((last.v - first.v) * 10) / 10 : null;
+  const change = first && last && data.length > 1 ? Math.round((last.v - first.v) * 100) / 100 : null;
   const vals = data.map((d) => d.v);
   const ideal = key === 'kg' && me?.height ? Math.round(22 * (me.height / 100) ** 2 * 10) / 10 : null;
   const fmt = (t: number) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
@@ -64,7 +64,7 @@ export default function Stats() {
         ) : (
           <>
             <div className="mb-2 flex flex-wrap gap-x-4 text-sm">
-              <span>變化 <b className={change! > 0 ? 'text-orange-600' : 'text-emerald-600'}>{change! > 0 ? '+' : ''}{change}{metric.unit}</b></span>
+              <span>變化 <b className={change! > 0 ? 'text-orange-600' : 'text-emerald-600'}>{change! > 0 ? '+' : ''}{key === 'kg' ? change!.toFixed(2) : change}{metric.unit}</b></span>
               <span className="muted">最低 {Math.min(...vals)}・最高 {Math.max(...vals)}</span>
             </div>
             <div className="h-64">
@@ -72,8 +72,8 @@ export default function Stats() {
                 <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#8884" />
                   <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={fmt} fontSize={11} />
-                  <YAxis domain={['auto', 'auto']} fontSize={11} />
-                  <Tooltip labelFormatter={(t) => new Date(t as number).toLocaleDateString('zh-TW')} formatter={(v) => [v + ' ' + metric.unit, metric.label]} />
+                  <YAxis domain={['auto', 'auto']} fontSize={11} tickFormatter={key === 'kg' ? (v: number) => v.toFixed(1) : undefined} />
+                  <Tooltip labelFormatter={(t) => new Date(t as number).toLocaleDateString('zh-TW')} formatter={(v) => [(key === 'kg' ? Number(v).toFixed(2) : v) + ' ' + metric.unit, metric.label]} />
                   {ideal && <ReferenceLine y={ideal} stroke="#10b981" strokeDasharray="4 4" label={{ value: '理想', fontSize: 11, fill: '#10b981', position: 'insideTopRight' }} />}
                   <Line type="monotone" dataKey="v" stroke="#0e7490" strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={false} />
                 </LineChart>

@@ -8,6 +8,7 @@ import Report from './routes/Report';
 import History from './routes/History';
 import Family from './routes/Family';
 import Help from './routes/Help';
+import Tape from './routes/Tape';
 
 // 圖表頁用到 recharts，拆出去讓量體重頁打開更快
 const Stats = lazy(() => import('./routes/Stats'));
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/family" element={<Family />} />
           <Route path="/help" element={<Help />} />
+          <Route path="/tape" element={<Tape />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

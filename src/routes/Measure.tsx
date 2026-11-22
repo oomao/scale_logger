@@ -5,6 +5,118 @@ import { connectGatt, FLAG_URL, resetResult, startScan, stop, support, useScale 
 import { addRec, deleteRec, profileOf, recsOf, selectMember, updateRec, useDb } from '../lib/store';
 import { derive, fmtKg } from '../lib/derive';
 import { fmtDate } from '../lib/format';
+import Spark from '../components/Spark';
+import { TAPE_ITEMS, tapesOf, type Rec } from '../lib/store';
+
+const DAY = 24 * 3600 * 1000;
+const signed = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(1);
+
+// 體重分級：國健署 BMI 18.5 / 24 / 27，四段等寬色條（跟 OKOK 首頁一樣的樣子）
+const WEIGHT_BANDS: [string, string, string][] = [
+  ['偏瘦', 'bg-sky-400', 'text-sky-600 dark:text-sky-400'],
+  ['標準', 'bg-emerald-400', 'text-emerald-600 dark:text-emerald-400'],
+  ['微胖', 'bg-amber-400', 'text-amber-600 dark:text-amber-400'],
+  ['肥胖', 'bg-red-500', 'text-red-600 dark:text-red-400'],
+];
+
+function WeightCard({ recs, height }: { recs: Rec[]; height?: number }) {
+  const last = recs[recs.length - 1];
+  const prev = recs[recs.length - 2];
+  const month = recs.filter((r) => r.time >= last.time - 30 * DAY);
+  const best = month.length >= 2 ? Math.min(...month.map((r) => r.kg)) : null;
+  const h2 = height ? (height / 100) ** 2 : null;
+  const cuts = h2 ? [14, 18.5, 24, 27, 32].map((b) => b * h2) : null;
+  let band = -1, pos = 0;
+  if (cuts) {
+    band = last.kg < cuts[1] ? 0 : last.kg < cuts[2] ? 1 : last.kg < cuts[3] ? 2 : 3;
+    const f = Math.min(1, Math.max(0, (last.kg - cuts[band]) / (cuts[band + 1] - cuts[band])));
+    pos = (band + f) * 25;
+  }
+  const d = prev ? Math.round((last.kg - prev.kg) * 100) / 100 : null;
+  return (
+    <div>
+      <p className="muted">{fmtDate(last.time)}</p>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <p className="text-6xl font-bold tabular-nums leading-none">{fmtKg(last.kg)}<span className="ml-1 text-xl font-normal text-gray-500">公斤</span></p>
+        {band >= 0 && <span className={`rounded-full px-3 py-1 text-base font-bold text-white ${WEIGHT_BANDS[band][1]}`}>{WEIGHT_BANDS[band][0]}</span>}
+      </div>
+      {cuts && (
+        <div className="mt-4">
+          <div className="relative flex h-2.5 gap-1">
+            {WEIGHT_BANDS.map(([n, bg]) => <div key={n} className={`flex-1 rounded-full ${bg} ${n === WEIGHT_BANDS[band][0] ? '' : 'opacity-60'}`} />)}
+            <div className="absolute -top-1.5 h-5 w-5 -translate-x-1/2 rounded-full border-4 border-white bg-gray-900 shadow dark:border-gray-900 dark:bg-white" style={{ left: pos + '%' }} />
+          </div>
+          <div className="relative mt-1 h-4 text-[11px] text-gray-500">
+            {[1, 2, 3].map((i) => <span key={i} className="absolute -translate-x-1/2 tabular-nums" style={{ left: i * 25 + '%' }}>{cuts[i].toFixed(1)}</span>)}
+          </div>
+        </div>
+      )}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div>
+          <p className={`text-2xl font-bold tabular-nums ${d == null || d === 0 ? '' : d > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{d == null ? '--' : signed(d)}</p>
+          <p className="muted">比上次</p>
+        </div>
+        <div className="text-right">
+          <p className="text-2xl font-bold tabular-nums">{best == null ? '--' : fmtKg(best)}</p>
+          <p className="muted">30 天內最輕</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 體重趨勢：最近 30 天（每天取最後一筆） */
+function TrendCard({ recs }: { recs: Rec[] }) {
+  const last = recs[recs.length - 1];
+  const byDay = new Map<string, Rec>();
+  for (const r of recs.filter((r) => r.time >= last.time - 30 * DAY)) byDay.set(new Date(r.time).toDateString(), r);
+  const pts = [...byDay.values()].map((r) => [r.time, r.kg] as [number, number]);
+  const md = (t: number) => `${new Date(t).getMonth() + 1}/${new Date(t).getDate()}`;
+  return (
+    <Link to="/stats" className="card block">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">📈 體重趨勢</h2>
+        <span className="text-gray-400">›</span>
+      </div>
+      {pts.length >= 2 ? (
+        <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-4">
+          <div>
+            <p className="text-3xl font-bold tabular-nums">{signed(pts[pts.length - 1][1] - pts[0][1])}<span className="ml-1 text-sm font-normal text-gray-500">公斤</span></p>
+            <p className="muted">近 30 天變化</p>
+          </div>
+          <div>
+            <Spark points={pts} />
+            <div className="flex justify-between text-[11px] text-gray-500"><span>{md(pts[0][0])}</span><span>{md(pts[pts.length - 1][0])}</span></div>
+          </div>
+        </div>
+      ) : (
+        <p className="muted mt-1">不同天量兩次以上，這裡就會出現趨勢。</p>
+      )}
+    </Link>
+  );
+}
+
+function TapeCard({ memberId }: { memberId: string }) {
+  const db = useDb();
+  const ts = tapesOf(db, memberId);
+  const last = ts[ts.length - 1];
+  const shown = last ? TAPE_ITEMS.filter(([k]) => last.cm[k] != null).slice(0, 3) : [];
+  return (
+    <Link to="/tape" className="card block">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">📏 體圍紀錄</h2>
+        <span className="text-gray-400">›</span>
+      </div>
+      {last ? (
+        <p className="mt-1 text-sm">
+          {fmtDate(last.time)}：{shown.map(([k, n]) => `${n} ${last.cm[k]}`).join('・')} 公分
+        </p>
+      ) : (
+        <p className="muted mt-1">用皮尺量腰圍、臀圍等，記下來看變化。</p>
+      )}
+    </Link>
+  );
+}
 
 function FlagGuide() {
   const [copied, setCopied] = useState(false);
@@ -115,13 +227,8 @@ export default function Measure() {
           <button className="btn mt-4 w-full" onClick={stop}>停止</button>
         </section>
       ) : (
-        <section className="card text-center">
-          {last && (
-            <p className="muted">
-              上次 {fmtDate(last.time)}：<b className="text-gray-900 dark:text-gray-100">{fmtKg(last.kg)} kg</b>
-              {derive(last, me).c?.fatPct != null && `・體脂 ${derive(last, me).c!.fatPct}%`}
-            </p>
-          )}
+        <section className="card">
+          {last ? <WeightCard recs={mine} height={me.height} /> : <p className="muted text-center">{me.name}還沒有紀錄，站上體重計量第一次吧。</p>}
           {!sup.bluetooth ? (
             <p className="mt-3 text-amber-700 dark:text-amber-400">這個瀏覽器不支援藍牙。請用 <b>Android 手機的 Chrome</b> 打開這個網址。</p>
           ) : sup.scan ? (
@@ -132,6 +239,9 @@ export default function Measure() {
           {scale.status && <p className={`mt-3 text-sm ${scale.error ? 'text-red-600 dark:text-red-400' : ''}`}>{scale.status}</p>}
         </section>
       )}
+
+      {!busy && !saved && mine.length > 0 && <TrendCard recs={mine} />}
+      {!busy && !saved && <TapeCard memberId={me.id} />}
 
       {saved && prev && (
         <p className="muted text-center">

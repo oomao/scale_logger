@@ -24,10 +24,24 @@ export interface Rec {
   note?: string;
 }
 
+// 體圍（皮尺量的，手動輸入，單位公分）
+export type TapeKey = 'chest' | 'upperAbdomen' | 'waist' | 'lowerAbdomen' | 'hip' | 'thighR' | 'calfR' | 'armR';
+export const TAPE_ITEMS: [TapeKey, string][] = [
+  ['chest', '胸圍'], ['upperAbdomen', '上腹圍'], ['waist', '腰圍'], ['lowerAbdomen', '下腹圍'],
+  ['hip', '臀圍'], ['thighR', '大腿（右）'], ['calfR', '小腿（右）'], ['armR', '上臂圍（右）'],
+];
+export interface Tape {
+  id: string;
+  memberId: string;
+  time: number;
+  cm: Partial<Record<TapeKey, number>>;
+}
+
 export interface Db {
   members: Member[];
   current: string | null;
   recs: Rec[];
+  tapes: Tape[];
   lastBackup?: number | null;
   /** 認得的那台秤（C0 用封包裡的 MAC，其他用 Web Bluetooth 的裝置 id），附近有別台秤時只收這台 */
   scaleKey?: string | null;
@@ -38,7 +52,7 @@ const IDB_STORE = 'kv';
 const IDB_KEY = 'db';
 const LS_KEY = 'scaleLogger.v1';
 
-const empty = (): Db => ({ members: [], current: null, recs: [], lastBackup: null, scaleKey: null });
+const empty = (): Db => ({ members: [], current: null, recs: [], tapes: [], lastBackup: null, scaleKey: null });
 const valid = (d: unknown): d is Db => !!d && Array.isArray((d as Db).members) && Array.isArray((d as Db).recs);
 
 let db: Db = empty();
@@ -86,7 +100,7 @@ export async function initStore() {
     useLocalStorage = true;
     try {
       const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-      db = valid(d) ? d : empty();
+      db = valid(d) ? { ...empty(), ...d } : empty();
     } catch {
       db = empty();
     }
@@ -144,6 +158,7 @@ export function deleteMember(id: string) {
     ...db,
     members,
     recs: db.recs.filter((r) => r.memberId !== id),
+    tapes: db.tapes.filter((t) => t.memberId !== id),
     current: db.current === id ? members[0]?.id ?? null : db.current,
   });
 }
@@ -167,14 +182,27 @@ export const setScaleKey = (k: string | null) => commit({ ...db, scaleKey: k });
 
 export const markBackedUp = () => commit({ ...db, lastBackup: Date.now() });
 
-export const unbackedRecs = (d: Db = db) => d.recs.filter((r) => r.time > (d.lastBackup ?? 0)).length;
+export const unbackedRecs = (d: Db = db) =>
+  d.recs.filter((r) => r.time > (d.lastBackup ?? 0)).length + d.tapes.filter((t) => t.time > (d.lastBackup ?? 0)).length;
+
+export function addTape(t: Omit<Tape, 'id'>): string {
+  const id = uid();
+  commit({ ...db, tapes: [...db.tapes, { ...t, id }] });
+  return id;
+}
+
+export const deleteTape = (id: string) => commit({ ...db, tapes: db.tapes.filter((t) => t.id !== id) });
+
+/** 某人的體圍紀錄，舊到新 */
+export const tapesOf = (d: Db, memberId: string | null) =>
+  d.tapes.filter((t) => t.memberId === memberId).sort((a, b) => a.time - b.time);
 
 /** 某人的紀錄，舊到新 */
 export const recsOf = (d: Db, memberId: string | null) =>
   d.recs.filter((r) => r.memberId === memberId).sort((a, b) => a.time - b.time);
 
 // ---------- 匯出 / 匯入 ----------
-export interface ExportFile { app: 'scale-logger'; version: 1; exportedAt: number; members: Member[]; recs: Rec[] }
+export interface ExportFile { app: 'scale-logger'; version: 1; exportedAt: number; members: Member[]; recs: Rec[]; tapes: Tape[] }
 
 export function exportData(memberId: string | null): ExportFile {
   return {
@@ -183,6 +211,7 @@ export function exportData(memberId: string | null): ExportFile {
     exportedAt: Date.now(),
     members: memberId ? db.members.filter((m) => m.id === memberId) : db.members,
     recs: memberId ? db.recs.filter((r) => r.memberId === memberId) : db.recs,
+    tapes: memberId ? db.tapes.filter((t) => t.memberId === memberId) : db.tapes,
   };
 }
 
@@ -191,6 +220,7 @@ export function importData(text: string): string {
   if (!valid(d)) throw new Error('這不是體重紀錄的備份檔');
   const members = [...db.members];
   const recs = [...db.recs];
+  const tapes = [...db.tapes];
   const idMap = new Map<string, string>();
   let addM = 0, addR = 0, skipR = 0;
   for (const m of d.members) {
@@ -217,6 +247,12 @@ export function importData(text: string): string {
     recs.push({ ...r, memberId: idMap.get(r.memberId) ?? r.memberId });
     addR++;
   }
-  commit({ ...db, members, recs, current: db.current ?? members[0]?.id ?? null });
-  return `匯入完成：新增 ${addM} 位家人、${addR} 筆紀錄` + (skipR ? `（${skipR} 筆已經有了，略過）` : '') + '。';
+  let addT = 0;
+  for (const t of Array.isArray(d.tapes) ? d.tapes : []) {
+    if (!t?.id || typeof t.cm !== 'object' || tapes.some((x) => x.id === t.id)) continue;
+    tapes.push({ id: t.id, time: Number(t.time), memberId: idMap.get(t.memberId) ?? t.memberId, cm: t.cm });
+    addT++;
+  }
+  commit({ ...db, members, recs, tapes, current: db.current ?? members[0]?.id ?? null });
+  return `匯入完成：新增 ${addM} 位家人、${addR} 筆紀錄` + (addT ? `、${addT} 筆體圍` : '') + (skipR ? `（${skipR} 筆已經有了，略過）` : '') + '。';
 }

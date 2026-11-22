@@ -1,7 +1,7 @@
 {
   "name": "scale-logger",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "家庭體重紀錄 — 用 Web Bluetooth 讀 OKOK / Chipsea 體脂秤，依家人分開存紀錄，免廣告",
   "scripts": {

@@ -52,6 +52,24 @@ const c = compose({ sex: 'M', height: 170, age: 40 }, 67.85, 500);
 console.log('compose', c);
 eq('BMI', c.bmi, 23.5);
 eq('fat% in range', c.fatPct! > 10 && c.fatPct! < 30, true);
+// 對照 OKOK 國際版實際畫面（2026-11-21）：女 56 歲 152 cm、68.6 kg，秤送固定 500 Ω
+const o = compose({ sex: 'F', height: 152, age: 56 }, 68.6, 500);
+eq('OKOK BMI', o.bmi, 29.7);
+eq('OKOK 脂肪率', o.fatPct, 41.2);
+eq('OKOK 脂肪重', o.fatKg, 28.3);
+eq('OKOK 骨骼肌率', o.skeletalPct, 31.3);
+eq('OKOK 骨骼肌重', o.skeletalKg, 21.5);
+eq('OKOK 肌肉%', o.musclePct, 54.6);
+eq('OKOK 肌肉重', o.muscleKg, 37.5);
+eq('OKOK 水份%', o.waterPct, 46.6);
+eq('OKOK 水含量', o.waterKg, 31.9);
+eq('OKOK 內臟脂肪', o.visceral, 10);
+eq('OKOK 骨量', o.boneKg, 2.83);
+eq('OKOK 蛋白質', o.proteinPct, 8.1);
+eq('OKOK 肥胖度', o.obesity, 39.4);
+eq('OKOK 去脂體重', o.leanKg, 40.32);
+eq('OKOK 基礎代謝 1193（±5）', Math.abs(o.bmr - 1193) <= 5, true);
+console.log('OKOK 身體年齡 66，我們算', o.bodyAge);
 eq('no impedance → no fat', compose({ sex: 'F', height: 160, age: 60 }, 55, null).fatPct, undefined);
 
 console.log(fail ? `\n${fail} 項失敗` : '\n全部通過');

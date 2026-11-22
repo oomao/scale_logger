@@ -47,7 +47,7 @@ function ManualEntry({ memberId }: { memberId: string }) {
   return (
     <details className="card">
       <summary className="cursor-pointer font-semibold">手動輸入體重</summary>
-      <p className="muted mt-1">體重計讀不到時用。手動輸入只有體重，沒有體脂。</p>
+      <p className="muted mt-1">體重計讀不到時用。體脂等數字會跟體重計一樣用 500 Ω 估算。</p>
       <div className="mt-2 flex gap-2">
         <input className="input" inputMode="decimal" placeholder="例如 62.5" value={kg} onChange={(e) => setKg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} />
         <button className="btn-primary" onClick={save}>記下</button>

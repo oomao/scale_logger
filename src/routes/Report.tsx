@@ -1,9 +1,17 @@
 import { Link, useParams } from 'react-router-dom';
 import MemberPicker from '../components/MemberPicker';
-import { bands, bodyType, level, type Band, type Level } from '../lib/bia';
+import { bands, bodyType, level, ratings, type Band, type Composition, type Level, type Tone } from '../lib/bia';
 import { derive, fakeImpedance, fmtKg } from '../lib/derive';
 import { fmtDate } from '../lib/format';
 import { ageAt, recsOf, useDb } from '../lib/store';
+
+const TONE: Record<Tone, string> = {
+  low: 'text-sky-600 dark:text-sky-400',
+  ok: 'text-emerald-600 dark:text-emerald-400',
+  good: 'text-emerald-600 dark:text-emerald-400',
+  high: 'text-orange-600 dark:text-orange-400',
+  veryHigh: 'text-red-600 dark:text-red-400',
+};
 
 const LEVEL: Record<Level, [string, string]> = {
   low: ['偏低', 'text-sky-600 dark:text-sky-400'],
@@ -59,7 +67,8 @@ export default function Report() {
   }
 
   const m = db.members.find((x) => x.id === rec.memberId);
-  const { p, c, fromScale } = derive(rec, m);
+  const { p, c, fromScale, assumedZ } = derive(rec, m);
+  const rate = p && c ? ratings(p, c, rec.kg) : {};
   const mine = recsOf(db, rec.memberId);
   const prev = mine.filter((r) => r.time < rec.time).pop();
   const prevD = prev ? derive(prev, m).c : null;
@@ -109,47 +118,56 @@ export default function Report() {
 
       {c && (
         <section className="card">
-          <h3 className="mb-2 font-semibold">身體組成</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <h3 className="mb-1 font-semibold">身體指標</h3>
+          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
             {([
-              ['脂肪重', c.fatKg, 'kg', prevD?.fatKg],
-              ['去脂體重', c.leanKg, 'kg', prevD?.leanKg],
-              ['肌肉量', c.muscleKg, 'kg', prevD?.muscleKg],
-              ['骨骼肌率', c.skeletalPct, '%', prevD?.skeletalPct],
-              ['蛋白質', c.proteinPct, '%', prevD?.proteinPct],
-              ['骨量', c.boneKg, 'kg', prevD?.boneKg],
-              ['基礎代謝', c.bmr, '大卡', prevD?.bmr],
-              ['身體年齡', c.bodyAge, '歲', undefined],
-            ] as [string, number | undefined, string, number | undefined][]).filter(([, v]) => v != null).map(([k, v, u, pv]) => {
+              ['脂肪重', 'fatKg', c.fatKg, '公斤', prevD?.fatKg],
+              ['骨骼肌率', 'skeletalPct', c.skeletalPct, '%', prevD?.skeletalPct],
+              ['骨骼肌重', 'skeletalKg', c.skeletalKg, '公斤', prevD?.skeletalKg],
+              ['肌肉率', 'musclePct', c.musclePct, '%', prevD?.musclePct],
+              ['肌肉重', 'muscleKg', c.muscleKg, '公斤', prevD?.muscleKg],
+              ['水含量', 'waterKg', c.waterKg, '公斤', prevD?.waterKg],
+              ['骨量', 'boneKg', c.boneKg, '公斤', prevD?.boneKg],
+              ['基礎代謝', 'bmr', c.bmr, '大卡', prevD?.bmr],
+              ['蛋白質', 'proteinPct', c.proteinPct, '%', prevD?.proteinPct],
+              ['肥胖度', 'obesity', c.obesity, '%', prevD?.obesity],
+              ['去脂體重', 'leanKg', c.leanKg, '公斤', prevD?.leanKg],
+              ['身體年齡', 'bodyAge', c.bodyAge, '歲', undefined],
+            ] as [string, keyof Composition, number | undefined, string, number | undefined][]).filter(([, , v]) => v != null).map(([k, key, v, u, pv]) => {
               const d = delta(v, pv);
+              const r = rate[key];
               return (
-                <div key={k} className="rounded-xl bg-stone-100 px-3 py-2 dark:bg-gray-800">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{k}</div>
-                  <div className="text-xl font-semibold">
-                    {v}<span className="ml-0.5 text-xs font-normal text-gray-500">{u}</span>
-                    {d != null && d !== 0 && <span className="ml-2 text-xs font-normal text-gray-500">{d > 0 ? '+' : ''}{d}</span>}
-                  </div>
-                  {k === '身體年齡' && ageAt(m, rec.time) != null && (
-                    <div className="text-[11px] text-gray-500">實際 {ageAt(m, rec.time)} 歲</div>
-                  )}
-                </div>
+                <li key={k} className="flex items-center justify-between py-2.5">
+                  <span>
+                    {k}
+                    {key === 'bodyAge' && ageAt(m, rec.time) != null && <span className="ml-1 text-xs text-gray-500">（實際 {ageAt(m, rec.time)} 歲）</span>}
+                  </span>
+                  <span className="text-right">
+                    <b className="text-xl tabular-nums">{v}</b>
+                    <span className="ml-0.5 text-xs text-gray-500">{u}</span>
+                    {d != null && d !== 0 && <span className="ml-1.5 text-xs text-gray-500">{d > 0 ? '+' : ''}{d}</span>}
+                    {r && <span className={`block text-sm font-semibold ${TONE[r[1]]}`}>{r[0]}</span>}
+                  </span>
+                </li>
               );
             })}
-          </div>
-          {c.fatPct == null && <p className="muted mt-2">這筆沒有阻抗（手動輸入、只量體重的秤，或沒赤腳），只算得出 BMI 和基礎代謝。</p>}
+          </ul>
+          {p && m?.height && <p className="muted mt-1 text-xs">身高 {m.height} 公分・{p.sex === 'M' ? '男' : '女'}・{p.age} 歲</p>}
         </section>
       )}
 
-      {fakeImpedance(mine) && (
-        <p className="rounded-2xl border border-orange-300 bg-orange-50 p-3 text-sm dark:border-orange-700 dark:bg-orange-950/40">
-          ⚠️ 最近幾次的阻抗值都一模一樣（{rec.impedance} Ω），體重變了它卻沒變。有些便宜的體重計會送固定的假阻抗，這種情況體脂、肌肉只是用身高體重估的，參考就好。
+      {(assumedZ || rec.impedance === 500 || fakeImpedance(mine)) && c?.fatPct != null && (
+        <p className="rounded-2xl bg-stone-100 p-3 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          ℹ️ {assumedZ ? '這筆沒有阻抗（手動輸入），' : `你的體重計送的阻抗是固定的 ${rec.impedance} Ω，不是真的量出來的，`}
+          體脂、肌肉這些數字是用身高、體重、年齡估出來的。OKOK 也是這樣算，所以數字會跟 OKOK 一樣；看長期趨勢就好，不用太在意單次數字。
         </p>
       )}
 
       <p className="muted px-1 text-xs">
-        {fromScale ? '體脂等數值是體重計自己算的。' : '體脂等數值是用體重＋阻抗，照 OKOK App 的公式（開源專案 openScale 整理）算的，跟 OKOK 顯示的可能差 1～3%。'}
+        {fromScale ? '體脂等數值是體重計自己算的。' : '體脂等數值是用體重＋阻抗，照 OKOK App 的公式（開源專案 openScale 整理、再對照 OKOK 畫面校正）算的。'}
         看長期趨勢比單次數字準；同一個時間（例如早上起床上完廁所）赤腳量最穩定。不能取代醫療診斷。
         {rec.impedance ? ` 阻抗 ${rec.impedance} Ω。` : ''}
+        {c?.bodyAge != null && ' 身體年齡的公式跟新版 OKOK 不完全一樣，可能差 1～3 歲。'}
       </p>
     </div>
   );
